@@ -206,7 +206,7 @@ class MarineAnalysis(Task):
         envconfig_jcb['PARMgfs'] = self.task_config.PARMgfs
         envconfig_jcb['NMEM_ENS'] = self.task_config.NMEM_ENS
         envconfig_jcb['berror_model'] = 'marine_background_error_static_diffusion'
-        if self.task_config.NMEM_ENS >= 3:
+        if self.task_config.NMEM_ENS >= 2:
             envconfig_jcb['berror_model'] = 'marine_background_error_hybrid_diffusion_diffusion'
         envconfig_jcb['DATA'] = self.task_config.DATA
         envconfig_jcb['OPREFIX'] = self.task_config.OPREFIX
