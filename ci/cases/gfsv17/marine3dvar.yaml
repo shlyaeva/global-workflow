@@ -18,7 +18,8 @@ base:
   DO_TEST_MODE: "YES"
 
 prepoceanobs:
-  DMPDIR: /scratch1/NCEPDEV/da/common/
+  use_exp_obs: "YES"
+  dmpdir_exp: /scratch1/NCEPDEV/da/common/
 
 marineanl:
   SOCA_INPUT_FIX_DIR: {{ HOMEgfs }}/fix/gdas/soca/1440x1080x75/soca
