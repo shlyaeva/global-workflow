@@ -76,13 +76,13 @@ class Analysis(Task):
         ))
 
     def initialize(self) -> None:
-        self.initialize()
+        raise NotImplementedError(f"{type(self).__name__} does not implement initialize()")
 
     def execute(self) -> None:
-        super.execute()
+        raise NotImplementedError(f"{type(self).__name__} does not implement execute()")
 
     def finalize(self) -> None:
-        super.finalize()
+        raise NotImplementedError(f"{type(self).__name__} does not implement finalize()")
 
     def clean(self) -> None:
         super().clean()

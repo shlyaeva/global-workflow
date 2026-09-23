@@ -1081,7 +1081,6 @@ class GFSTasks(Tasks):
         if self._base.get('DOLETKF_OCN_INC', True):
             dep_dict = {'type': 'task', 'name': f"enkfgdas_marineanlecen"}
             deps.append(rocoto.add_dependency(dep_dict))
-        print(f"DEBUG: deps for marineanlfinal: {deps}")
         dependencies = rocoto.create_dependency(dep_condition='and', dep=deps)
 
         resources = self.get_resource('marineanlfinal')
