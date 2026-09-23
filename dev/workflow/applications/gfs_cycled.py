@@ -100,6 +100,12 @@ class GFSCycledAppConfig(AppConfig):
                     raise ValueError(f"DO_JEDICOUPLEDVAR cannot be used with {' or '.join(clashes)}; "
                                      f"the coupled analysis replaces them")
 
+                # Deterministic with a static B only: there is no coupled ensemble B or
+                # ensemble recentering yet
+                if run_options[run]['do_hybvar'] or run_options[run]['nens'] > 0:
+                    raise ValueError("DO_JEDICOUPLEDVAR requires DOHYBVAR=NO and NMEM_ENS=0; "
+                                     "the coupled analysis is deterministic only")
+
         return run_options
 
     def _get_app_configs(self, run):

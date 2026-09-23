@@ -53,7 +53,6 @@ coupledanl:
   SOCA_INPUT_FIX_DIR: "${FIXglobal}/gdas/soca/72x35x25/soca"
   SOCA_ANL_GEOM: "${FIXglobal}/gdas/soca/72x35x25/soca"
   SOCA_NINNER: 100
-  COUPLED_GEOMETRY_PARALLEL: "NO"
 
 atmensanl:
   LAYOUT_X_ATMENSANL: 8

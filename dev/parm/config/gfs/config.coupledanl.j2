@@ -27,11 +27,6 @@ export NUMBER_OUTER_LOOPS="{{ NUMBER_OUTER_LOOPS | default() }}"
 export COUPLED_NINNER_LOOP1="{{ COUPLED_NINNER_LOOP1 | default() }}"
 export COUPLED_NINNER_LOOP2="{{ COUPLED_NINNER_LOOP2 | default() }}"
 
-# NO: every rank constructs both geometries, so ntasks has to be a valid decomposition for
-# FV3 and for MOM6 at the same time. YES splits the communicator exactly in half, the first
-# half running FV3JEDI and the second SOCA.
-export COUPLED_GEOMETRY_PARALLEL="{{ COUPLED_GEOMETRY_PARALLEL | default("NO", true) }}"
-
 export TASK_CONFIG_YAML="${PARMglobal}/gdas/coupled/coupled_det_config.yaml.j2"
 
 echo "END: config.coupledanl"

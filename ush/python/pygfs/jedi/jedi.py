@@ -294,12 +294,12 @@ class Jedi:
             if observers == []:
                 logger.warning(f"No observers found in JEDI input config")
 
-    def _get_obs_components(self) -> list:
-        """List the components that own observations, in observation search path order
+    def _get_obs_paths(self) -> List[str]:
+        """List the observation search paths, the primary one first
 
         Returns
         ----------
-        list of component names, one per observation search path
+        list of paths, one per component that owns observations
         """
 
         paths = []
@@ -307,12 +307,22 @@ class Jedi:
             paths.append(self.jcb_config['app_path_observations'])
         paths += self.jcb_config.get('app_paths_observations_extra', [])
 
-        components = [os.path.basename(path.rstrip('/')) for path in paths]
+        return paths
+
+    def _get_obs_components(self) -> List[str]:
+        """List the components that own observations, in observation search path order
+
+        Returns
+        ----------
+        list of component names, one per observation search path
+        """
+
+        components = [os.path.basename(path.rstrip('/')) for path in self._get_obs_paths()]
 
         # An application with no observation search path still needs a component to key off
         return components if components else [self.component]
 
-    def _get_observations_by_component(self) -> Dict[str, list]:
+    def get_observations_by_component(self) -> Dict[str, List[str]]:
         """Group the observations in the JCB configuration by the component that owns them
 
         An observation belongs to the component whose observation directory holds its
@@ -331,8 +341,7 @@ class Jedi:
         if len(self.obs_components) == 1:
             return {self.obs_components[0]: list(observations)}
 
-        paths = [self.jcb_config['app_path_observations']]
-        paths += self.jcb_config.get('app_paths_observations_extra', [])
+        paths = self._get_obs_paths()
 
         obs_by_component = {}
         for observation_from_jcb in observations:
@@ -369,7 +378,7 @@ class Jedi:
 
         return value
 
-    def _get_missing_component_keys(self, component: str, stems: list) -> list:
+    def _get_missing_component_keys(self, component: str, stems: List[str]) -> List[str]:
         """List the JCB configuration keys a component is missing
 
         Parameters
@@ -385,6 +394,40 @@ class Jedi:
         """
 
         return [f'{component}_{stem}' for stem in stems if f'{component}_{stem}' not in self.jcb_config]
+
+    def _get_bias_components(self, stems: List[str]) -> Dict[str, List[str]]:
+        """Group observations by component, keeping only the components that do bias correction
+
+        A component takes part only if it defines every key in stems. Not every component of a
+        coupled application does; the marine one has no bias correction files.
+
+        Parameters
+        ----------
+        stems: list
+            the bias correction key names a component must define, without its prefix
+
+        Returns
+        ----------
+        Dict mapping component name to the observations it owns, for qualifying components
+
+        Raises
+        ----------
+        WorkflowKeyError if no component qualifies, listing what each one is missing
+        """
+
+        observations_by_component = self.get_observations_by_component()
+        missing = {component: self._get_missing_component_keys(component, stems)
+                   for component in observations_by_component}
+        components = {component: observations
+                      for component, observations in observations_by_component.items()
+                      if not missing[component]}
+
+        if not components:
+            raise WorkflowKeyError("No component does bias correction. Missing keys: " +
+                                   '; '.join(f'{component}: {", ".join(keys)}'
+                                             for component, keys in missing.items()))
+
+        return components
 
     @logit(logger)
     def stage_obsdatain(self, comin) -> None:
@@ -407,7 +450,7 @@ class Jedi:
         # Initialize FileHandler input dictionary
         fh_dict = {'mkdir': [], 'copy_opt': []}
 
-        for component, observations in self._get_observations_by_component().items():
+        for component, observations in self.get_observations_by_component().items():
             # Check that other required keys are present in jcb_config
             for stem in ['obsdatain_path', 'obsdataout_path', 'obsdatain_prefix', 'obsdatain_suffix']:
                 key = f'{component}_{stem}'
@@ -420,7 +463,7 @@ class Jedi:
 
             # Copy files
             ob_dest = self.jcb_config[f'{component}_obsdatain_path']
-            comin_component = Jedi._get_for_component(comin, component)
+            comin_component = self._get_for_component(comin, component)
             for observation_from_jcb in observations:
                 # Observations
                 ob_src = os.path.join(comin_component,
@@ -450,7 +493,7 @@ class Jedi:
         None
         """
 
-        for component, observations in self._get_observations_by_component().items():
+        for component, observations in self.get_observations_by_component().items():
             # Check that other required keys are present in jcb_config
             for stem in ['obsdataout_path', 'obsdataout_prefix', 'obsdataout_suffix']:
                 key = f'{component}_{stem}'
@@ -459,7 +502,7 @@ class Jedi:
 
             # Set paths of output tar files
             tarball = os.path.join(self.jcb_config[f"{component}_obsdataout_path"],
-                                   f"{Jedi._get_for_component(archive_name, component)}.tar.gz")
+                                   f"{self._get_for_component(archive_name, component)}.tar.gz")
 
             # Create compressed tarball of obs output files in COM
             logger.info(f"Archiving observation output files to {tarball}")
@@ -476,7 +519,7 @@ class Jedi:
                         logger.warning(f"Observation output file {obsdataout_file} does not exist and will be skipped")
 
             # Copy files to COM
-            FileHandler({'copy_opt': [[tarball, Jedi._get_for_component(comout, component)]]}).sync()
+            FileHandler({'copy_opt': [[tarball, self._get_for_component(comout, component)]]}).sync()
 
     @logit(logger)
     def stage_obsbiasin(self, comin) -> None:
@@ -498,19 +541,7 @@ class Jedi:
 
         stems = ['obsbiasin_path', 'obsbiasout_path', 'obsbiasin_prefix']
 
-        # A component only takes part if it does bias correction at all. Not every component
-        # of a coupled application does; the marine one has no bias correction files.
-        observations_by_component = self._get_observations_by_component()
-        missing = {component: self._get_missing_component_keys(component, stems)
-                   for component in observations_by_component}
-        components = {component: observations
-                      for component, observations in observations_by_component.items()
-                      if not missing[component]}
-
-        if not components:
-            raise WorkflowKeyError("No component does bias correction. Missing keys: " +
-                                   '; '.join(f'{component}: {", ".join(keys)}'
-                                             for component, keys in missing.items()))
+        components = self._get_bias_components(stems)
 
         # Initialize FileHandler input dictionary
         fh_dict = {'mkdir': [], 'copy_opt': []}
@@ -523,7 +554,7 @@ class Jedi:
             # Copy files
             files_already_copied = []
             bias_dest = self.jcb_config[f'{component}_obsbiasin_path']
-            comin_component = Jedi._get_for_component(comin, component)
+            comin_component = self._get_for_component(comin, component)
             for observation_from_jcb in observations:
                 if observation_from_jcb in self.jcb_config.bias_files_dict and observation_from_jcb not in files_already_copied:
                     bias_src = os.path.join(comin_component,
@@ -571,22 +602,11 @@ class Jedi:
                  'obsbiasout_prefix', 'obsbiasout_suffix', 'obsbiascovout_suffix',
                  'obstlapsein_suffix']
 
-        # A component only takes part if it does bias correction at all; see stage_obsbiasin
-        observations_by_component = self._get_observations_by_component()
-        missing = {component: self._get_missing_component_keys(component, stems)
-                   for component in observations_by_component}
-        components = {component: observations
-                      for component, observations in observations_by_component.items()
-                      if not missing[component]}
-
-        if not components:
-            raise WorkflowKeyError("No component does bias correction. Missing keys: " +
-                                   '; '.join(f'{component}: {", ".join(keys)}'
-                                             for component, keys in missing.items()))
+        components = self._get_bias_components(stems)
 
         for component, observations in components.items():
             # Set paths of output tar files
-            tarball = f"{Jedi._get_for_component(archive_name, component)}.tar"
+            tarball = f"{self._get_for_component(archive_name, component)}.tar"
 
             # Get lists of files to put in tarballs
             satlist = []
@@ -631,7 +651,7 @@ class Jedi:
                     bcor.add(tlapfile, arcname=os.path.basename(tlapfile_rename))
 
             # Always copy the tarball to COM; it is always created above and required by the archive step
-            comout_component = Jedi._get_for_component(comout, component)
+            comout_component = self._get_for_component(comout, component)
             FileHandler({'mkdir': [comout_component]}).sync()
             FileHandler({'copy_opt': [[tarball, comout_component]]}).sync()
 

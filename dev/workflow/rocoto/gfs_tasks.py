@@ -599,42 +599,6 @@ class GFSTasks(Tasks):
 
         return task
 
-    def _coupledanl_task(self, step, deps):
-        """
-        Build one task of the coupled analysis chain.
-
-        The five tasks differ only in their name and dependencies, so the rest of the
-        task dictionary is assembled here.
-
-        Parameters
-        ----------
-        step : str
-            Name of the coupled analysis step, e.g. 'coupledanlvar'
-        deps : list
-            Dependencies, already passed through rocoto.add_dependency
-
-        Returns
-        -------
-        The rocoto task
-        """
-
-        dependencies = rocoto.create_dependency(dep_condition='and', dep=deps) if len(deps) > 1 \
-            else rocoto.create_dependency(dep=deps)
-
-        task_name = f'{self.run}_{step}'
-        task_dict = {'task_name': task_name,
-                     'resources': self.get_resource(step),
-                     'dependency': dependencies,
-                     'envars': self.envars,
-                     'cycledef': self.run.replace('enkf', ''),
-                     'command': f'{self.HOMEglobal}/dev/job_cards/rocoto/{step}.sh',
-                     'job_name': f'{self.pslot}_{task_name}_@H',
-                     'log': f'{self.rotdir}/logs/@Y@m@d@H/{task_name}.log',
-                     'maxtries': '&MAXTRIES;'
-                     }
-
-        return rocoto.create_task(task_dict)
-
     def coupledanlinit(self):
 
         # Both components' observations, the SOCA static B, and the previous cycle's
@@ -648,24 +612,72 @@ class GFSTasks(Tasks):
         deps.append(rocoto.add_dependency(dep_dict))
         dep_dict = {'type': 'metatask', 'name': 'gdas_fcst', 'offset': f"-{timedelta_to_HMS(self._base['interval_gdas'])}"}
         deps.append(rocoto.add_dependency(dep_dict))
+        dependencies = rocoto.create_dependency(dep_condition='and', dep=deps)
 
-        return self._coupledanl_task('coupledanlinit', deps)
+        resources = self.get_resource('coupledanlinit')
+        task_name = f'{self.run}_coupledanlinit'
+        task_dict = {'task_name': task_name,
+                     'resources': resources,
+                     'dependency': dependencies,
+                     'envars': self.envars,
+                     'cycledef': self.run.replace('enkf', ''),
+                     'command': f'{self.HOMEglobal}/dev/job_cards/rocoto/coupledanlinit.sh',
+                     'job_name': f'{self.pslot}_{task_name}_@H',
+                     'log': f'{self.rotdir}/logs/@Y@m@d@H/{task_name}.log',
+                     'maxtries': '&MAXTRIES;'
+                     }
+
+        task = rocoto.create_task(task_dict)
+
+        return task
 
     def coupledanlvar(self):
 
         deps = []
         dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlinit'}
         deps.append(rocoto.add_dependency(dep_dict))
+        dependencies = rocoto.create_dependency(dep=deps)
 
-        return self._coupledanl_task('coupledanlvar', deps)
+        resources = self.get_resource('coupledanlvar')
+        task_name = f'{self.run}_coupledanlvar'
+        task_dict = {'task_name': task_name,
+                     'resources': resources,
+                     'dependency': dependencies,
+                     'envars': self.envars,
+                     'cycledef': self.run.replace('enkf', ''),
+                     'command': f'{self.HOMEglobal}/dev/job_cards/rocoto/coupledanlvar.sh',
+                     'job_name': f'{self.pslot}_{task_name}_@H',
+                     'log': f'{self.rotdir}/logs/@Y@m@d@H/{task_name}.log',
+                     'maxtries': '&MAXTRIES;'
+                     }
+
+        task = rocoto.create_task(task_dict)
+
+        return task
 
     def coupledanlfv3inc(self):
 
         deps = []
         dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlvar'}
         deps.append(rocoto.add_dependency(dep_dict))
+        dependencies = rocoto.create_dependency(dep=deps)
 
-        return self._coupledanl_task('coupledanlfv3inc', deps)
+        resources = self.get_resource('coupledanlfv3inc')
+        task_name = f'{self.run}_coupledanlfv3inc'
+        task_dict = {'task_name': task_name,
+                     'resources': resources,
+                     'dependency': dependencies,
+                     'envars': self.envars,
+                     'cycledef': self.run.replace('enkf', ''),
+                     'command': f'{self.HOMEglobal}/dev/job_cards/rocoto/coupledanlfv3inc.sh',
+                     'job_name': f'{self.pslot}_{task_name}_@H',
+                     'log': f'{self.rotdir}/logs/@Y@m@d@H/{task_name}.log',
+                     'maxtries': '&MAXTRIES;'
+                     }
+
+        task = rocoto.create_task(task_dict)
+
+        return task
 
     def coupledanlchkpt(self):
 
@@ -676,8 +688,24 @@ class GFSTasks(Tasks):
             data = f'&ROTDIR;/{self.run}.@Y@m@d/@H/atmos/{self.run}.t@Hz.analysis.sfc.a006.nc'
             dep_dict = {'type': 'data', 'data': data}
             deps.append(rocoto.add_dependency(dep_dict))
+        dependencies = rocoto.create_dependency(dep_condition='and', dep=deps)
 
-        return self._coupledanl_task('coupledanlchkpt', deps)
+        resources = self.get_resource('coupledanlchkpt')
+        task_name = f'{self.run}_coupledanlchkpt'
+        task_dict = {'task_name': task_name,
+                     'resources': resources,
+                     'dependency': dependencies,
+                     'envars': self.envars,
+                     'cycledef': self.run.replace('enkf', ''),
+                     'command': f'{self.HOMEglobal}/dev/job_cards/rocoto/coupledanlchkpt.sh',
+                     'job_name': f'{self.pslot}_{task_name}_@H',
+                     'log': f'{self.rotdir}/logs/@Y@m@d@H/{task_name}.log',
+                     'maxtries': '&MAXTRIES;'
+                     }
+
+        task = rocoto.create_task(task_dict)
+
+        return task
 
     def coupledanlfinal(self):
 
@@ -688,8 +716,24 @@ class GFSTasks(Tasks):
         deps.append(rocoto.add_dependency(dep_dict))
         dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlchkpt'}
         deps.append(rocoto.add_dependency(dep_dict))
+        dependencies = rocoto.create_dependency(dep_condition='and', dep=deps)
 
-        return self._coupledanl_task('coupledanlfinal', deps)
+        resources = self.get_resource('coupledanlfinal')
+        task_name = f'{self.run}_coupledanlfinal'
+        task_dict = {'task_name': task_name,
+                     'resources': resources,
+                     'dependency': dependencies,
+                     'envars': self.envars,
+                     'cycledef': self.run.replace('enkf', ''),
+                     'command': f'{self.HOMEglobal}/dev/job_cards/rocoto/coupledanlfinal.sh',
+                     'job_name': f'{self.pslot}_{task_name}_@H',
+                     'log': f'{self.rotdir}/logs/@Y@m@d@H/{task_name}.log',
+                     'maxtries': '&MAXTRIES;'
+                     }
+
+        task = rocoto.create_task(task_dict)
+
+        return task
 
     def aeroanlgenb(self):
 

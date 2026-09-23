@@ -5,11 +5,9 @@ from typing import Any, Dict
 from pygfs.jedi import Jedi
 from pygfs.task.analysis import Analysis
 from pygfs.task.atm_analysis import atm_task_config
-from pygfs.task.marine_analysis import (marine_task_config,
-                                        marine_prep_input_nml,
-                                        marine_initialize_obs_stats,
-                                        marine_save_obs_stats)
-from pygfs.utils.marine_da_utils import test_hist_date
+from pygfs.task.marine_analysis import marine_task_config
+from pygfs.utils.marine_da_utils import (test_hist_date, prep_var_input_nml,
+                                         initialize_obs_stats, save_obs_stats)
 from wxflow import FileHandler, parse_j2yaml, logit
 
 logger = getLogger(__name__.split('.')[-1])
@@ -50,6 +48,10 @@ class CoupledAnalysis(Analysis):
         # geometry, background error selection and restart dates they do.
         self.task_config.update(atm_task_config(self.task_config))
         self.task_config.update(marine_task_config(self.task_config))
+
+        # The marine keys tag the JEDI analysis and increment files with this; the marine
+        # default names its 3DFGAT, which this is not
+        self.task_config.marine_var_exp = '3dvar_coupled'
 
         # Extend task_config with content of config yaml for this task
         self.task_config.update(parse_j2yaml(self.task_config.TASK_CONFIG_YAML, self.task_config))
@@ -96,7 +98,7 @@ class CoupledAnalysis(Analysis):
         self.jedi_dict['coupledanlvar'].stage_obsbiasin(self.task_config.COMIN_ATMOS_ANALYSIS_PREV)
 
         # Prepare the MOM6 namelists
-        marine_prep_input_nml(self.task_config)
+        prep_var_input_nml(self.task_config)
 
         # Assert that the dates of the background files are correct. Coupled 3D-Var solves
         # for a single state at the window middle, so that is where the ocean and sea ice
@@ -114,9 +116,10 @@ class CoupledAnalysis(Analysis):
         # This method is a bit of a hack that will be removed in the future when the anlstat
         # job fully replaces the SOCA obs_diag_stats application
         try:
-            marine_initialize_obs_stats(self.jedi_dict['coupledanlvar'],
-                                        self.jedi_dict['soca_diag_stats'],
-                                        self.task_config)
+            initialize_obs_stats(self.jedi_dict['coupledanlvar'],
+                                 self.jedi_dict['soca_diag_stats'],
+                                 self.task_config,
+                                 component='marine')
         except Exception as e:
             logger.warning(f"Failed to initialize observation statistics: {e}")
 
@@ -175,6 +178,6 @@ class CoupledAnalysis(Analysis):
                                                         f"{self.task_config.APREFIX}varbc_params")
 
         # Save marine obs diag statistics to COM (this is for legacy obs monitoring)
-        marine_save_obs_stats(self.jedi_dict['soca_diag_stats'],
-                              self.task_config.DATA,
-                              self.task_config.COMOUT_OCEAN_ANALYSIS)
+        save_obs_stats(self.jedi_dict['soca_diag_stats'],
+                       self.task_config.DATA,
+                       self.task_config.COMOUT_OCEAN_ANALYSIS)

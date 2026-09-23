@@ -293,11 +293,10 @@ case ${step} in
     export layout_x=${layout_x_coupledanl}
     export layout_y=${layout_y_coupledanl}
 
-    # GSIBEC decomposes over every rank running FV3JEDI, so layout_gsib_x * layout_gsib_y
-    # has to equal coupledanlvar's task count, 6 * layout_x * layout_y. These are only
-    # needed here because coupledanlinit is what renders coupledanlvar.yaml.
-    # TODO: with COUPLED_GEOMETRY_PARALLEL=YES only half the ranks run FV3JEDI, so this
-    #       will need halving.
+    # Every rank runs FV3JEDI, so GSIBEC decomposes over all of them and
+    # layout_gsib_x * layout_gsib_y has to equal coupledanlvar's task count,
+    # 6 * layout_x * layout_y. These are only needed here because coupledanlinit is what
+    # renders coupledanlvar.yaml.
     export layout_gsib_x=$(( layout_x * 3 ))
     export layout_gsib_y=$(( layout_y * 2 ))
 
@@ -309,8 +308,8 @@ case ${step} in
     ;;
 
   "coupledanlvar")
-    # Every rank constructs both geometries unless COUPLED_GEOMETRY_PARALLEL is YES, so
-    # one task count has to satisfy both models. FV3 fixes it at 6 * layout_x * layout_y;
+    # Every rank constructs both geometries, so one task count has to satisfy both models.
+    # FV3 fixes it at 6 * layout_x * layout_y;
     # MOM6 decomposes over whatever it is given. Memory is keyed on OCNRES because every
     # rank holds the ocean geometry as well as the atmospheric one.
     export layout_x=${layout_x_coupledanl}

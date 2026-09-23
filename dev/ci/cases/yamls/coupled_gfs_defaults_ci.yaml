@@ -19,6 +19,5 @@ coupledanl:
   SOCA_INPUT_FIX_DIR: "${FIXglobal}/gdas/soca/72x35x25/soca"
   SOCA_ANL_GEOM: "${FIXglobal}/gdas/soca/72x35x25/soca"
   SOCA_NINNER: 1
-  COUPLED_GEOMETRY_PARALLEL: "NO"
   NUMBER_OUTER_LOOPS: 1
   COUPLED_NINNER_LOOP1: 1
