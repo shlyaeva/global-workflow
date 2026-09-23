@@ -79,17 +79,8 @@ class MarineAnalysis(Analysis):
         logger.info(f"Staging observations")
         self.jedi_dict['var'].stage_obsdatain(self.task_config.COMIN_OBS)
 
-        # prepare the deterministic MOM6 input.nml
-        logger.info(f"Preparing deterministic MOM6 input namelist")
-        parse_j2tmpl(os.path.join(self.task_config.PARMmarine, 'mom_input.nml.j2'),
-                     self.task_config,
-                     output_file="mom_input.nml")
-
-        # prepare the input.nml for the analysis geometry
-        logger.info(f"Preparing analysis geometry input namelist")
-        parse_j2tmpl(os.path.join(self.task_config.PARMmarine, 'mom_input_anlgeom.nml.j2'),
-                     self.task_config,
-                     output_file="./anl_geom/mom_input.nml")
+        # prepare the MOM6 namelists
+        marine_prep_input_nml(self.task_config)
 
         # assert that dates of the history files are correct
         test_hist_date('./INPUT/MOM.res.nc', self.task_config.WINDOW_BEGIN)
@@ -154,12 +145,9 @@ class MarineAnalysis(Analysis):
                                               f"{self.task_config.APREFIX}marine_analysis.ioda_hofx")
 
         # Save obs diag statistics to COM (this is for legacy obs monitoring)
-        logger.info(f"Copy (legacy) observation statistics from {self.task_config.DATA} to {self.task_config.COMOUT_OCEAN_ANALYSIS}")
-        try:
-            diags_list = self.jedi_dict['soca_diag_stats'].render_jcb_template(algorithm_in='soca_diags_finalize')
-        except Exception as e:
-            logger.warning(f"Failed to render JCB template, 'soca_diags_finalize': {e}")
-        FileHandler(diags_list).sync()
+        marine_save_obs_stats(self.jedi_dict['soca_diag_stats'],
+                              self.task_config.DATA,
+                              self.task_config.COMOUT_OCEAN_ANALYSIS)
 
     @logit(logger)
     def initialize_obs_stats(self) -> None:
@@ -178,23 +166,9 @@ class MarineAnalysis(Analysis):
         None
         """
 
-        #
-        cleaned_observations = []
-        obs_variables = {}
-        for obs_space in self.jedi_dict['var'].jedi_config.input_config['cost function']['observations']['observers']:
-            name = obs_space['obs space']['name']
-            variable = obs_space['obs space']['simulated variables'][0]
-
-            cleaned_observations.append(name)
-            obs_variables[name] = variable
-
-        # Update the task_config with the observation variables
-        self.task_config['cleaned_observations'] = cleaned_observations
-        self.task_config['obs_variables'] = obs_variables
-
-        # Initialize the observation statistics
-        logger.info(f"Initializing JEDI SOCA observation statistics application")
-        self.jedi_dict['soca_diag_stats'].initialize(self.task_config)
+        marine_initialize_obs_stats(self.jedi_dict['var'],
+                                    self.jedi_dict['soca_diag_stats'],
+                                    self.task_config)
 
 
 @logit(logger)
@@ -259,3 +233,100 @@ def marine_task_config(task_config: AttrDict) -> AttrDict:
             'marine_pseudo_model_states': _marine_pseudo_model_states
         }
     )
+
+
+@logit(logger)
+def marine_prep_input_nml(task_config: AttrDict) -> None:
+    """Write the MOM6 namelists a marine JEDI analysis runs against
+
+    One for the deterministic background geometry and one for the analysis geometry.
+    Kept separate from MarineAnalysis so that a coupled analysis can prepare the same
+    two namelists.
+
+    Parameters
+    ----------
+    task_config: AttrDict
+        Attribute-dictionary of task configuration
+
+    Returns
+    ----------
+    None
+    """
+
+    logger.info(f"Preparing deterministic MOM6 input namelist")
+    parse_j2tmpl(os.path.join(task_config.PARMmarine, 'mom_input.nml.j2'),
+                 task_config,
+                 output_file="mom_input.nml")
+
+    logger.info(f"Preparing analysis geometry input namelist")
+    parse_j2tmpl(os.path.join(task_config.PARMmarine, 'mom_input_anlgeom.nml.j2'),
+                 task_config,
+                 output_file="./anl_geom/mom_input.nml")
+
+
+@logit(logger)
+def marine_initialize_obs_stats(jedi_var: Jedi, jedi_obs_stats: Jedi, task_config: AttrDict) -> None:
+    """Initialize the SOCA observation statistics application
+
+    The observation spaces it reports on are whichever ones survived in the variational
+    application's input configuration, so this has to run after that has been initialized.
+
+    Parameters
+    ----------
+    jedi_var: Jedi
+        the initialized variational Jedi object to take the observation spaces from
+    jedi_obs_stats: Jedi
+        the observation statistics Jedi object to initialize
+    task_config: AttrDict
+        Attribute-dictionary of task configuration; the observation names and variables
+        are added to it
+
+    Returns
+    ----------
+    None
+    """
+
+    cleaned_observations = []
+    obs_variables = {}
+    for obs_space in jedi_var.jedi_config.input_config['cost function']['observations']['observers']:
+        name = obs_space['obs space']['name']
+        variable = obs_space['obs space']['simulated variables'][0]
+
+        cleaned_observations.append(name)
+        obs_variables[name] = variable
+
+    # Update the task_config with the observation variables
+    task_config['cleaned_observations'] = cleaned_observations
+    task_config['obs_variables'] = obs_variables
+
+    # Initialize the observation statistics
+    logger.info(f"Initializing JEDI SOCA observation statistics application")
+    jedi_obs_stats.initialize(task_config)
+
+
+@logit(logger)
+def marine_save_obs_stats(jedi_obs_stats: Jedi, data: str, comout: str) -> None:
+    """Copy the (legacy) SOCA observation statistics to COM
+
+    Parameters
+    ----------
+    jedi_obs_stats: Jedi
+        the observation statistics Jedi object
+    data: str
+        path to the run directory, for logging
+    comout: str
+        path to the COM output directory, for logging
+
+    Returns
+    ----------
+    None
+    """
+
+    logger.info(f"Copy (legacy) observation statistics from {data} to {comout}")
+    try:
+        diags_list = jedi_obs_stats.render_jcb_template(algorithm_in='soca_diags_finalize')
+    except Exception as e:
+        logger.warning(f"Failed to render JCB template, 'soca_diags_finalize': {e}")
+        return
+
+    FileHandler(diags_list).sync()
