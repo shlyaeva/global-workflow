@@ -2486,7 +2486,8 @@ class GFSTasks(Tasks):
 
             if self.options['do_ocean']:
                 tarball_types.extend(['ocean_6hravg', 'ocean_native', 'gfs_flux_1p00'])
-                if self.options.get('do_jediocnvar', False) and self.app_config.mode == 'cycled':
+                marine_da = self.options.get('do_jediocnvar', False) or self.options.get('do_jedicoupledvar', False)
+                if marine_da and self.app_config.mode == 'cycled':
                     tarball_types.append('gfsocean_analysis')
 
             if self.options['do_ice']:
@@ -2508,7 +2509,8 @@ class GFSTasks(Tasks):
             if self.options['do_ocean']:
                 tarball_types.append('gdasocean')
 
-                if self.options['do_jediocnvar'] and self.app_config.mode == 'cycled':
+                marine_da = self.options['do_jediocnvar'] or self.options['do_jedicoupledvar']
+                if marine_da and self.app_config.mode == 'cycled':
                     tarball_types.append('gdasocean_analysis')
 
             if self.options['do_wave']:
