@@ -82,11 +82,23 @@ class GFSCycledAppConfig(AppConfig):
             run_options[run]['do_jediatmens'] = base.get('DO_JEDIATMENS', False)
             run_options[run]['do_jediatmens_split_obssol'] = base.get('DO_JEDIATMENS_SPLIT_OBSSOL', True)
             run_options[run]['do_jediocnvar'] = base.get('DO_JEDIOCNVAR', False)
+            run_options[run]['do_jedicoupledvar'] = base.get('DO_JEDICOUPLEDVAR', False)
             run_options[run]['do_jedisnowda'] = base.get('DO_JEDISNOWDA', False)
             run_options[run]['do_gsisoilda'] = base.get('DO_GSISOILDA', False)
             run_options[run]['do_gsiliau'] = base.get('DO_LAND_IAU', run_options[run]['do_gsisoilda'])
             run_options[run]['do_mergensst'] = base.get('DO_MERGENSST', False)
             run_options[run]['do_wdqms'] = base.get('DO_WDQMS', False)
+
+            # The coupled analysis replaces both single-component chains. Running it
+            # alongside either would put two analyses on the same COM files and the same
+            # scratch directory.
+            if run_options[run]['do_jedicoupledvar']:
+                clashes = [name for name, opt in (('DO_JEDIATMVAR', 'do_jediatmvar'),
+                                                  ('DO_JEDIOCNVAR', 'do_jediocnvar'))
+                           if run_options[run][opt]]
+                if clashes:
+                    raise ValueError(f"DO_JEDICOUPLEDVAR cannot be used with {' or '.join(clashes)}; "
+                                     f"the coupled analysis replaces them")
 
         return run_options
 
@@ -116,7 +128,13 @@ class GFSCycledAppConfig(AppConfig):
         if options['do_prep_sfc']:
             configs += ['prep_sfc']
 
-        if options['do_jediatmvar']:
+        if options['do_jedicoupledvar']:
+            # One JEDI application for both components, so this replaces the atmanl* and
+            # the marineanl* chains; the marine B matrix jobs are reused unchanged
+            configs += ['prepoceanobs', 'marinebmatinit', 'marinebmat',
+                        'coupledanlinit', 'coupledanlvar', 'coupledanlfv3inc',
+                        'coupledanlchkpt', 'coupledanlfinal', 'analcalc']
+        elif options['do_jediatmvar']:
             if options['do_jediatmens']:
                 configs += ['atmanlinit', 'atmanlvar', 'atmanlfv3inc', 'atmanlfinal', 'analcalc_fv3jedi']
             else:
@@ -265,7 +283,11 @@ class GFSCycledAppConfig(AppConfig):
                 task_names[run] += ['prep']
                 if options['do_prep_sfc']:
                     task_names[run] += ['prep_sfc']
-                if options['do_jediatmvar']:
+                if options['do_jedicoupledvar']:
+                    task_names[run] += ['prepoceanobs', 'marinebmatinit', 'marinebmat',
+                                        'coupledanlinit', 'coupledanlvar', 'coupledanlfv3inc',
+                                        'coupledanlchkpt', 'coupledanlfinal', 'analcalc']
+                elif options['do_jediatmvar']:
                     if options['do_jediatmens']:
                         task_names[run] += ['atmanlinit', 'atmanlvar', 'atmanlfv3inc', 'atmanlfinal', 'analcalc_fv3jedi']
                     else:
@@ -286,7 +308,7 @@ class GFSCycledAppConfig(AppConfig):
 
                 # gdas- and gfs-specific analysis tasks
                 if run == 'gdas':
-                    if not options['do_jediatmvar']:
+                    if not (options['do_jediatmvar'] or options['do_jedicoupledvar']):
                         task_names[run] += ['analdiag']
 
                     if options['do_wdqms']:

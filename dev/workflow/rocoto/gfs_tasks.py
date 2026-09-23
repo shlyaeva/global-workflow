@@ -145,7 +145,7 @@ class GFSTasks(Tasks):
             deps.append(rocoto.add_dependency(dep_dict))
         data = f'{dump_path}/{self.run}.t@Hz.updated.status.tm00.bufr_d'
         dep_dict = {'type': 'data', 'data': data}
-        if self.options['do_jediatmvar']:
+        if self.options['do_jediatmvar'] or self.options['do_jedicoupledvar']:
             data = f'{ioda_path}/atmos/{self.run}.t@Hz.obsforge_atmos_bufr_status.log'
             dep_dict = {'type': 'data', 'data': data}
             deps.append(rocoto.add_dependency(dep_dict))
@@ -346,7 +346,9 @@ class GFSTasks(Tasks):
     def sfcanl_gcycle(self):
 
         deps = []
-        if self.options['do_jediatmvar']:
+        if self.options['do_jedicoupledvar']:
+            dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlfinal'}
+        elif self.options['do_jediatmvar']:
             dep_dict = {'type': 'task', 'name': f'{self.run}_atmanlfinal'}
         else:
             dep_dict = {'type': 'task', 'name': f'{self.run}_anal'}
@@ -407,7 +409,9 @@ class GFSTasks(Tasks):
     def analcalc(self):
 
         deps = []
-        if self.options['do_jediatmvar'] and not self.options['do_jediatmens']:
+        if self.options['do_jedicoupledvar']:
+            dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlfinal'}
+        elif self.options['do_jediatmvar'] and not self.options['do_jediatmens']:
             dep_dict = {'type': 'task', 'name': f'{self.run}_atmanlfinal'}
         else:
             dep_dict = {'type': 'task', 'name': f'{self.run}_anal'}
@@ -594,6 +598,98 @@ class GFSTasks(Tasks):
         task = rocoto.create_task(task_dict)
 
         return task
+
+    def _coupledanl_task(self, step, deps):
+        """
+        Build one task of the coupled analysis chain.
+
+        The five tasks differ only in their name and dependencies, so the rest of the
+        task dictionary is assembled here.
+
+        Parameters
+        ----------
+        step : str
+            Name of the coupled analysis step, e.g. 'coupledanlvar'
+        deps : list
+            Dependencies, already passed through rocoto.add_dependency
+
+        Returns
+        -------
+        The rocoto task
+        """
+
+        dependencies = rocoto.create_dependency(dep_condition='and', dep=deps) if len(deps) > 1 \
+            else rocoto.create_dependency(dep=deps)
+
+        task_name = f'{self.run}_{step}'
+        task_dict = {'task_name': task_name,
+                     'resources': self.get_resource(step),
+                     'dependency': dependencies,
+                     'envars': self.envars,
+                     'cycledef': self.run.replace('enkf', ''),
+                     'command': f'{self.HOMEglobal}/dev/job_cards/rocoto/{step}.sh',
+                     'job_name': f'{self.pslot}_{task_name}_@H',
+                     'log': f'{self.rotdir}/logs/@Y@m@d@H/{task_name}.log',
+                     'maxtries': '&MAXTRIES;'
+                     }
+
+        return rocoto.create_task(task_dict)
+
+    def coupledanlinit(self):
+
+        # Both components' observations, the SOCA static B, and the previous cycle's
+        # forecast, which provides the atmosphere, ocean and sea ice backgrounds
+        deps = []
+        dep_dict = {'type': 'task', 'name': f'{self.run}_prep'}
+        deps.append(rocoto.add_dependency(dep_dict))
+        dep_dict = {'type': 'task', 'name': f'{self.run}_prepoceanobs'}
+        deps.append(rocoto.add_dependency(dep_dict))
+        dep_dict = {'type': 'task', 'name': f'{self.run}_marinebmat'}
+        deps.append(rocoto.add_dependency(dep_dict))
+        dep_dict = {'type': 'metatask', 'name': 'gdas_fcst', 'offset': f"-{timedelta_to_HMS(self._base['interval_gdas'])}"}
+        deps.append(rocoto.add_dependency(dep_dict))
+
+        return self._coupledanl_task('coupledanlinit', deps)
+
+    def coupledanlvar(self):
+
+        deps = []
+        dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlinit'}
+        deps.append(rocoto.add_dependency(dep_dict))
+
+        return self._coupledanl_task('coupledanlvar', deps)
+
+    def coupledanlfv3inc(self):
+
+        deps = []
+        dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlvar'}
+        deps.append(rocoto.add_dependency(dep_dict))
+
+        return self._coupledanl_task('coupledanlfv3inc', deps)
+
+    def coupledanlchkpt(self):
+
+        deps = []
+        dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlvar'}
+        deps.append(rocoto.add_dependency(dep_dict))
+        if self.options['do_mergensst']:
+            data = f'&ROTDIR;/{self.run}.@Y@m@d/@H/atmos/{self.run}.t@Hz.analysis.sfc.a006.nc'
+            dep_dict = {'type': 'data', 'data': data}
+            deps.append(rocoto.add_dependency(dep_dict))
+
+        return self._coupledanl_task('coupledanlchkpt', deps)
+
+    def coupledanlfinal(self):
+
+        # The atmospheric and the ocean and sea ice increment post-processing run in
+        # parallel; both have to finish before the analysis is written to COM
+        deps = []
+        dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlfv3inc'}
+        deps.append(rocoto.add_dependency(dep_dict))
+        dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlchkpt'}
+        deps.append(rocoto.add_dependency(dep_dict))
+
+        return self._coupledanl_task('coupledanlfinal', deps)
 
     def aeroanlgenb(self):
 
@@ -1095,7 +1191,12 @@ class GFSTasks(Tasks):
             dep_dict = {'type': 'task', 'name': f'{self.run}_{wave_job}'}
             deps.append(rocoto.add_dependency(dep_dict))
 
-        if self.options['do_jediocnvar']:
+        # The ocean and sea ice increments the forecast reads come from whichever chain
+        # produced them; sfcanl_gcycle above already covers the atmospheric side
+        if self.options['do_jedicoupledvar']:
+            dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlfinal'}
+            deps.append(rocoto.add_dependency(dep_dict))
+        elif self.options['do_jediocnvar']:
             dep_dict = {'type': 'task', 'name': f'{self.run}_marineanlfinal'}
             deps.append(rocoto.add_dependency(dep_dict))
 
@@ -1983,7 +2084,11 @@ class GFSTasks(Tasks):
 
     def anlstat(self):
         deps = []
-        if self.options['do_jediatmvar']:
+        if self.options['do_jedicoupledvar']:
+            # One task produces both components' observation diagnostics
+            dep_dict = {'type': 'task', 'name': f'{self.run}_coupledanlfinal'}
+            deps.append(rocoto.add_dependency(dep_dict))
+        elif self.options['do_jediatmvar']:
             dep_dict = {'type': 'task', 'name': f'{self.run}_atmanlfinal'}
             deps.append(rocoto.add_dependency(dep_dict))
         else:
@@ -2583,7 +2688,7 @@ class GFSTasks(Tasks):
                 # metatask and the echgres task for the half cycle.
                 dep_dict = {'type': 'metatask', 'name': f'{self.run}_epmn'}
                 deps_half.append(rocoto.add_dependency(dep_dict))
-                if not self.options['do_jediatmvar']:
+                if not (self.options['do_jediatmvar'] or self.options['do_jedicoupledvar']):
                     if not self.options['do_enkfonly_atm']:
                         dep_dict = {'type': 'task', 'name': f'{self.run}_echgres'}
                         deps_half.append(rocoto.add_dependency(dep_dict))

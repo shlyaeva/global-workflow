@@ -1,0 +1,24 @@
+defaults:
+  !INC {{ HOMEglobal }}/dev/parm/config/gfs/yaml/defaults.yaml
+base:
+  DO_JEDICOUPLEDVAR: "YES"
+  DO_JEDIATMVAR: "NO"
+  DO_JEDIOCNVAR: "NO"
+  DO_MERGENSST: "NO"
+  DO_METP: "NO"
+
+# Sections are merged with a shallow update, so a section defined here replaces the whole
+# defaults section: every key still needed has to be repeated.
+coupledanl:
+  STATICB_TYPE: "gsibec"
+  LAYOUT_X_COUPLEDANL: 1
+  LAYOUT_Y_COUPLEDANL: 1
+  IO_LAYOUT_X: 1
+  IO_LAYOUT_Y: 1
+  COUPLED_OBS_LIST: "${PARMglobal}/gdas/coupled/coupled_obs_list.yaml.j2"
+  SOCA_INPUT_FIX_DIR: "${FIXglobal}/gdas/soca/72x35x25/soca"
+  SOCA_ANL_GEOM: "${FIXglobal}/gdas/soca/72x35x25/soca"
+  SOCA_NINNER: 1
+  COUPLED_GEOMETRY_PARALLEL: "NO"
+  NUMBER_OUTER_LOOPS: 1
+  COUPLED_NINNER_LOOP1: 1

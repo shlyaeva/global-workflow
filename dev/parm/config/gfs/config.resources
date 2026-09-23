@@ -331,7 +331,10 @@ case ${step} in
         ;;
     esac
     threads_per_task=1
-    tasks_per_node=$(( max_tasks_per_node / threads_per_task ))
+    # Each rank holds both geometries, so per-rank memory is the sum of the two
+    # single-component analyses'. marineanlvar already halves the packing for SOCA alone;
+    # do the same here rather than use the denser atmospheric packing.
+    tasks_per_node=$(( max_tasks_per_node / 2 ))
     is_exclusive=True
     ;;
 
