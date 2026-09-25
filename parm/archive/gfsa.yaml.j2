@@ -34,7 +34,11 @@ gfsa:
         {% endif %}
 
         # State data
-        {% if DO_JEDIATMVAR %}
+        {% if DO_JEDICOUPLEDVAR %}
+        - "{{ COMIN_CONF }}/{{ head }}anlvar.coupled.yaml"
+        - "{{ COMIN_CONF }}/{{ head }}anlvar.fv3.atm.yaml"
+        - "{{ COMIN_ATMOS_ANALYSIS }}/{{ head }}atmos_analysis.ioda_hofx.tar.gz"
+        {% elif DO_JEDIATMVAR %}
         - "{{ COMIN_CONF }}/{{ head }}anlvar.atm.yaml"
         - "{{ COMIN_CONF }}/{{ head }}anlvar.fv3.atm.yaml"
         - "{{ COMIN_ATMOS_ANALYSIS }}/{{ head }}atmos_analysis.ioda_hofx.tar.gz"
