@@ -88,3 +88,26 @@ The GW configs contain switches that change how the system runs. Many defaults a
 |                  |                                  |               |             | If NO, static versions located in the GSI FIX     |
 |                  |                                  |               |             | directory will be used.                           |
 +------------------+----------------------------------+---------------+-------------+---------------------------------------------------+
+
+JEDI model interface selection
+------------------------------
+
+When running the JEDI-based deterministic variational analyses, the model interface used by the
+variational solver can be selected per component (defaults reproduce the current system):
+
+* ``JEDI_ATM_INTERFACE`` (``atmanl`` section of the defaults YAML): ``fv3jedi`` (default) or
+  ``ijedi``. With ``ijedi``, the ``atmanlvar`` step runs ``gdas_ijedi.x var`` on the i-jedi FV3
+  geometry. Requires GDASApp built with ``BUILD_IJEDI=ON``, ``STATICB_TYPE=identity`` (no
+  gsibec/Control2Analysis support in i-jedi yet) and ``LEVS=128`` (the only ak/bk table ported
+  to i-jedi so far). CRTM radiance observations are not supported yet, because i-jedi cannot
+  produce the GeoVaLs they need.
+* ``JEDI_MARINE_INTERFACE`` (``marineanl`` section): ``soca`` (default) or ``ijedi``. With
+  ``ijedi``, the marine variational step runs ``gdas_ijedi.x var`` on the i-jedi MOM6 geometry.
+  The analysis is ocean only (no sea-ice increment) and is supported only at 5 degree ocean
+  resolution (``OCNRES=500``). The MPI layout of the i-jedi MOM6 geometry is derived from the
+  ``marineanlvar`` task count in ``config.resources``. The background error is identity until
+  the B-matrix jobs can calibrate i-jedi diffusion parameters (soca's cannot be read by i-jedi);
+  the B-matrix and increment post-processing steps remain soca-based.
+
+These switches live in the experiment configs (``config.atmanl``/``config.marineanl``), so
+changing them requires re-running ``setup_expt.py``; they do not adjust the XML.
