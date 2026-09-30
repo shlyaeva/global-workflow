@@ -1,0 +1,22 @@
+defaults:
+  !INC {{ HOMEglobal }}/dev/parm/config/gfs/yaml/defaults.yaml
+base:
+  DOIAU: "NO"
+  DO_JEDIATMVAR: "YES"
+  DO_METP: "NO"
+  DO_TEST_MODE: "NO"
+  USE_IODADIR: "YES"
+atmanl:
+  JEDI_ATM_INTERFACE: "ijedi"
+  # i-jedi has no gsibec/Control2Analysis path yet, so the static B is SABER identity
+  STATICB_TYPE: "identity"
+  LAYOUT_X_ATMANL: 4
+  LAYOUT_Y_ATMANL: 4
+  # conventional_ps and gnssro only: CRTM radiances need GeoVaLs i-jedi cannot produce yet
+  OBS_LIST_YAML: "${HOMEglobal}/sorc/gdas.cd/test/gw-ci/atm/atm_obs_list_ufs_hybatmDA.yaml.j2"
+prepatmiodaobs:
+  DO_CONVERT_IODA: "YES"
+nsst:
+  NST_MODEL: "1"
+sfcanl_gcycle:
+  DONST: "NO"

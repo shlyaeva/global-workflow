@@ -1,0 +1,35 @@
+experiment:
+  net: gfs
+  mode: cycled
+  pslot: {{ 'pslot' | getenv }}
+  app: ATM
+  resdetatmos: 96
+  comroot: {{ 'RUNTESTS' | getenv }}/COMROOT
+  expdir: {{ 'RUNTESTS' | getenv }}/EXPDIR
+  icsdir: {{ BASE_IC }}/C96C48/20250808
+  idate: 2024022318
+  edate: 2024022406
+  nens: 0
+  interval: 24
+  start: warm
+  yaml: {{ HOMEglobal }}/dev/ci/cases/yamls/atmDA_ijedi_defaults_ci.yaml
+
+# i-jedi (JEDI_ATM_INTERFACE=ijedi) requires GDASApp built with BUILD_IJEDI=ON,
+# which is not part of the default build yet; skip everywhere until staged.
+skip_ci_on_hosts:
+  - wcoss2
+  - hera
+  - ursa
+  - orion
+  - hercules
+  - gaeac6
+  - derecho
+  - awsepicglobalworkflow
+
+workflow:
+  engine: rocoto
+  rocoto:
+    maxtries: 2
+    cyclethrottle: 3
+    taskthrottle: 25
+    verbosity: 2
