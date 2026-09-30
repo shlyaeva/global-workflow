@@ -14,6 +14,11 @@ export layout_y_atmanl="{{ LAYOUT_Y_ATMANL }}"
 export io_layout_x="{{ IO_LAYOUT_X }}"
 export io_layout_y="{{ IO_LAYOUT_Y }}"
 
+# JEDI model interface for the variational solver: fv3jedi (default) or ijedi
+# (i-jedi with the FV3 geometry; requires GDASApp built with BUILD_IJEDI=ON and
+# STATICB_TYPE=identity for now)
+export JEDI_ATM_INTERFACE="{{ JEDI_ATM_INTERFACE | default('fv3jedi') }}"
+
 export TASK_CONFIG_YAML="${PARMglobal}/gdas/atm/atm_det_config.yaml.j2"
 
 export LOCALIZATION_TYPE="bump"
