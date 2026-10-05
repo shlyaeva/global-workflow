@@ -101,7 +101,7 @@ variational solver can be selected per component (defaults reproduce the current
   gsibec/Control2Analysis support in i-jedi yet) and ``LEVS=128`` (the only ak/bk table ported
   to i-jedi so far). CRTM radiance observations are not supported yet, because i-jedi cannot
   produce the GeoVaLs they need.
-* ``JEDI_MARINE_INTERFACE`` (``marineanl`` section): ``soca`` (default) or ``ijedi``. With
+* ``JEDI_MARINE_INTERFACE`` (``base`` section): ``soca`` (default) or ``ijedi``. With
   ``ijedi``, the marine variational step runs ``gdas_ijedi.x var`` on the i-jedi MOM6 geometry.
   The analysis is ocean only (no sea-ice increment) and is supported only at 5 degree ocean
   resolution (``OCNRES=500``). The MPI layout of the i-jedi MOM6 geometry is derived from the
@@ -109,5 +109,5 @@ variational solver can be selected per component (defaults reproduce the current
   the B-matrix jobs can calibrate i-jedi diffusion parameters (soca's cannot be read by i-jedi);
   the B-matrix and increment post-processing steps remain soca-based.
 
-These switches live in the experiment configs (``config.atmanl``/``config.marineanl``), so
+These switches live in the experiment configs (``config.atmanl``/``config.base``), so
 changing them requires re-running ``setup_expt.py``; they do not adjust the XML.
